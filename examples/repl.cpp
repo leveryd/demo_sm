@@ -117,6 +117,33 @@ std::string FormatResult(JSContext* cx, JS::HandleValue value) {
     return "[invalid class]";
   }
 
+//// dongguangli add this
+///*
+//JS::AutoValueArray<1> parseParams(cx);
+//parseParams[0].setString(str);
+//JS::AutoValueArray<3> vp(context);
+//vp[2].set(*parseParams.begin());
+//*/
+//JS::RootedValueArray<1> parseParams(cx);
+//parseParams[0].setString(str);
+//JS::RootedValueArray<3> vp(cx);
+//vp[2].set(*parseParams.begin());
+//
+//
+////JS::Value *vp;
+//reflect_parse(cx, parseParams.length(), vp.begin());
+//
+//JS::CallArgs args = JS::CallArgsFromVp(1, vp.begin());
+//
+//auto x = args.rval();
+////JS::HandleValue y=  x;
+
+//JS::RootedValue x = vp[0];
+//printf("%s\n",typeid(x).name());
+//JS_ReportOutOfMemory(cx);
+
+
+
   JS::UniqueChars bytes(JS_EncodeStringToUTF8(cx, str));
   if (!bytes) {
     JS_ClearPendingException(cx);
@@ -142,7 +169,61 @@ JSObject* ReplGlobal::create(JSContext* cx) {
   return global;
 }
 
+
+bool test(JSContext* cx, const std::string& buffer, JS::HandleObject global){
+// dongguangli add this
+// define Reflect.parse
+if (!JS_InitReflectParse(cx, global)) {
+  std::cout << "error--\n" << std::endl;
+}
+
+// Get Reflect.parse value
+JS::Rooted<JS::Value> Reflect(cx);
+if (!JS_GetProperty(cx, global, "Reflect", &Reflect)) {
+  std::cout << "error1\n" << std::endl;
+}
+
+//assert Reflect.isObject()
+
+JS::Rooted<JSObject*> ReflectObj(cx, &Reflect.toObject());
+JS::Rooted<JS::Value> Reflect_parse(cx);
+if (!JS_GetProperty(cx, ReflectObj, "parse", &Reflect_parse)) {
+  std::cout << "error2\n" << std::endl;
+}
+
+//TODO:
+JS::Rooted<JS::Value> thisValue(cx);
+//if (!args.computeThis(cx, &thisValue)){
+//  std::cout << "error3\n" << std::endl;
+//} 
+
+//JS::Rooted<JS::Value> functionValue(cx, {callee function here});
+const char *c = buffer.c_str();
+JS::RootedString someString(cx, JS_NewStringCopyZ(cx, c));
+JS::Rooted<JS::Value> arg0(cx);
+arg0.setString(someString);
+JS::Rooted<JS::Value> rval(cx);
+
+//JS::Rooted<JSObject*> functionObject(cx, &functionValue.toObject());
+
+JS::RootedVector<JS::Value> args(cx);
+if (!args.append(arg0)) {
+  std::cout << "error4\n" << std::endl;
+}
+
+if (!JS::Call(cx, Reflect, Reflect_parse, args, &rval)) {
+  // Either the function throws, or the call fails for some other reason.
+  std::cout << "error5\n" << std::endl;
+  std::cout << rval.isObject() << std::endl;
+}
+
+// rval contains the returned value
+
+// dongguangli end
+}
+
 bool EvalAndPrint(JSContext* cx, const std::string& buffer, unsigned lineno) {
+
   JS::CompileOptions options(cx);
   options.setFileAndLine("typein", lineno);
 
@@ -187,6 +268,10 @@ void ReplGlobal::loop(JSContext* cx, JS::HandleObject global) {
       lineno++;
     } while (!JS_Utf8BufferIsCompilableUnit(cx, global, buffer.c_str(),
                                             buffer.length()));
+
+    // dongguangli add this
+    test(cx, buffer, global);
+    // dongguangli
 
     if (!EvalAndPrint(cx, buffer, startline)) {
       if (!priv(global)->m_shouldQuit) {
