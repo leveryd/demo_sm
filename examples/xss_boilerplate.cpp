@@ -83,7 +83,7 @@ bool boilerplate::RunExample(bool (*task)(JSContext*,const char*),const char* s,
 
 void boilerplate::Finish(){
     if(cx){
-        JS_DestroyContext(cx);
-        JS_ShutDown();
+        //JS_DestroyContext(cx);
+        //JS_ShutDown();
     }
 }

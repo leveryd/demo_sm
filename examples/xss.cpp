@@ -125,8 +125,8 @@ bool test(JSContext* cx, const char* s, JS::HandleObject global){
 
     if (!JS::Call(cx, *Reflect, *Reflect_parse, args, &rval)) {
         // Either the function throws, or the call fails for some other reason.
-        std::cout << "error5\n" << std::endl;
-        std::cout << rval.isObject() << std::endl;
+        std::cerr << "bad syntax" << std::endl;
+        //std::cerr << rval.isObject() << std::endl;
     }
 
     // rval contains the returned value
@@ -142,6 +142,7 @@ bool test(JSContext* cx, const char* s, JS::HandleObject global){
 
 std::once_flag flag2;
 JS::RootedObject* global;
+
 
 static bool RunREPL(JSContext* cx, const char* s) {
     // In order to use Promises in the REPL, we need a job queue to process
@@ -199,7 +200,7 @@ void unit_test(){
         "document.location=\"javascript:alert(1)\""
     };
     printf("test bad...\n");
-    for(int i=0;i<sizeof(s)/LEN;i++){
+    for(unsigned int i=0;i<sizeof(s)/LEN;i++){
         if(boilerplate::RunExample(RunREPL, s[i], /* initSelfHosting = */ true)==false){
             printf("%s\n", s[i]);
         }
@@ -207,11 +208,16 @@ void unit_test(){
     boilerplate::Finish();
 }
 
+// api which will be called by "html parser"
+extern "C" bool js_isxss(char* s){
+    return boilerplate::RunExample(RunREPL, s, /* initSelfHosting = */ true);
+}
+
 int main(int argc, char* argv[]) {
     int c=0;
     float benchmarkTime=0;
-    char* payload;
-    char* opt="d:p:th";
+    char* payload=NULL;
+    const char* opt="d:p:th";
     bool test=false;
 
     while ((c = getopt(argc, (char **)argv, opt)) != -1){
@@ -236,7 +242,7 @@ int main(int argc, char* argv[]) {
         unit_test();
         exit(0);
     }
-    if(benchmarkTime > 0){
+    if(benchmarkTime > 0 && NULL!=payload){
 
         printf("benchmark:%f\n", benchmarkTime);
 
@@ -262,7 +268,7 @@ int main(int argc, char* argv[]) {
         exit(0);
     }
 
-    if (payload){
+    if (NULL!=payload){
         printf("payload: %s\n", payload);
         if(boilerplate::RunExample(RunREPL, payload, /* initSelfHosting = */ true)){
             printf("found xss!\n");
@@ -283,8 +289,8 @@ static int isxss(lua_State *L) {
     if(strcmp(s, "debug")==0) {
         lua_pushboolean(L, true);
     } else {
-        if (!boilerplate::RunExample(RunREPL, s, /* initSelfHosting = */ true)){
-            lua_pushboolean(L, false);
+        if (boilerplate::RunExample(RunREPL, s, /* initSelfHosting = */ true)){
+            lua_pushboolean(L, true);
         } else {
             lua_pushboolean(L, false);
         }
@@ -294,7 +300,7 @@ static int isxss(lua_State *L) {
 }
 
 // luaopen_add 需要对应着 luaopen_模块名
-extern "C" int luaopen_xss(lua_State *L) {
+extern "C" int luaopen_jsxss(lua_State *L) {
     luaL_Reg luaLoadFun[] = {
         {"isxss", isxss},
         {NULL, NULL}
